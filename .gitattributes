@@ -1,0 +1,21 @@
+# Normalize line endings: Git stores LF, checks out native on Windows only
+# where appropriate. Keeps diffs clean across contributors and CI.
+* text=auto eol=lf
+
+# Scripts must stay LF even on Windows checkouts.
+*.sh text eol=lf
+
+# Treat common binary assets as binary (no EOL munging, no textual diff).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+
+# Collapse generated/vendored noise in PR diffs and language stats.
+*.lock linguist-generated=true

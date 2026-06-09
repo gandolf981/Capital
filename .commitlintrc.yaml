@@ -1,0 +1,50 @@
+# Conventional Commits config. Used by the Commitlint workflow to validate PR
+# titles and by the husky commit-msg hook to validate local commits.
+# https://commitlint.js.org/reference/rules.html
+extends:
+  - "@commitlint/config-conventional"
+
+rules:
+  type-enum:
+    - 2
+    - always
+    - - feat
+      - fix
+      - docs
+      - style
+      - refactor
+      - perf
+      - test
+      - build
+      - ci
+      - chore
+      - revert
+  # Scope is optional and free-form. List the common Capital scopes here at warn
+  # level (1) to nudge consistency without blocking; bump to 2 to enforce.
+  scope-enum:
+    - 1
+    - always
+    - - engine
+      - web
+      - api
+      - ui
+      - core
+      - deps
+      - ci
+      - docs
+      - infra
+      - release
+  subject-case:
+    - 2
+    - never
+    - - upper-case
+      - pascal-case
+      - start-case
+  header-max-length:
+    - 2
+    - always
+    - 100
+  body-max-line-length:
+    - 1
+    - always
+    - 120

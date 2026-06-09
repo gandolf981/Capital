@@ -1,0 +1,91 @@
+name: Promote test -> main
+
+# Fires after CI on `test` has completed successfully and opens (or refreshes)
+# a PR from `test` into `main`. The maintainer reviews and merges manually.
+#
+# Why workflow_run instead of `push: [test]` + a wait step:
+# hooking into `workflow_run` means that by the time this fires, CI's
+# conclusion is already known — no polling, no risk of a wait-action
+# deadlocking by waiting on its own check run.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [test]
+  workflow_dispatch:
+
+# GITHUB_TOKEN only does the read-only checkout / fetch below; every PR
+# operation runs through PROMOTE_TOKEN (a fine-grained PAT). A PAT is required
+# because GITHUB_TOKEN cannot create PRs when the repo's "Allow GitHub Actions
+# to create and approve pull requests" setting is off — and, unlike
+# GITHUB_TOKEN, a PAT-created PR triggers CI + commitlint so the required checks
+# report and the promotion PR is mergeable.
+#
+# Create the PAT with `contents: read` + `pull-requests: write` scope on this
+# repo and add it as a repository secret named PROMOTE_TOKEN
+# (Settings -> Secrets and variables -> Actions). See docs/BRANCHING.md.
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-to-main
+  cancel-in-progress: false
+
+jobs:
+  open-or-update-pr:
+    name: Open / update promotion PR
+    runs-on: ubuntu-latest
+    # Only proceed when CI on test succeeded. workflow_dispatch is unconditional
+    # (manual override for re-running after a fix).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          # Check out the exact SHA whose CI just went green. workflow_run
+          # otherwise runs in the context of the default branch.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Ensure test is ahead of main
+        id: ahead
+        run: |
+          git fetch origin main
+          AHEAD=$(git rev-list --count origin/main..HEAD)
+          echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
+          echo "test is $AHEAD commits ahead of main"
+
+      - name: Skip if test == main
+        if: steps.ahead.outputs.ahead == '0'
+        run: echo "Nothing to promote." && exit 0
+
+      - name: Find existing promotion PR
+        id: existing
+        if: steps.ahead.outputs.ahead != '0'
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_TOKEN }}
+        run: |
+          NUM=$(gh pr list --base main --head test --state open --json number --jq '.[0].number // empty')
+          echo "number=$NUM" >> "$GITHUB_OUTPUT"
+
+      - name: Open promotion PR
+        if: steps.ahead.outputs.ahead != '0' && steps.existing.outputs.number == ''
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head test \
+            --title "chore(release): promote test to main" \
+            --body "Automated promotion of \`test\` into \`main\`. Review the changes and merge when ready.
+
+          This PR is opened automatically when CI on \`test\` is green.
+          Maintainers should ensure all changes are release-worthy before merging."
+
+      - name: Refresh existing promotion PR
+        if: steps.ahead.outputs.ahead != '0' && steps.existing.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          gh pr comment "${{ steps.existing.outputs.number }}" \
+            --body "Refreshed: \`test\` is now ${{ steps.ahead.outputs.ahead }} commits ahead of \`main\` (sha: ${HEAD_SHA})."

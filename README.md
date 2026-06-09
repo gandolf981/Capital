@@ -1,18 +1,24 @@
+<div align="center">
+
 # Capital
 
+**Self-hosted automated trading platform for Binance, Alpaca, and Polymarket.**
+
 [![CI](https://github.com/FurkanEdizkan/Capital/actions/workflows/ci.yml/badge.svg)](https://github.com/FurkanEdizkan/Capital/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-orange.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
 
-**Capital** is a self-hosted, automated trading platform for Binance. It runs
-24/7 on your own machine, trades on configurable and code-defined strategies,
-and ships with a dark dashboard for monitoring markets, positions and PnL.
+</div>
 
-It defaults to **simulation** — no real money moves until you explicitly opt in
-to Testnet or live trading behind safeguards.
+---
+
+Capital runs 24/7 on your own machine, trades on configurable and code-defined
+strategies, and ships with a dark dashboard for monitoring markets, positions
+and PnL. It defaults to **simulation** — no real money moves until you
+explicitly opt in to Testnet or live trading behind safeguards.
 
 > ⚠️ **Trading involves risk.** Capital is provided as-is. Run it in Sim or
 > Testnet mode for a meaningful period before considering any live capital.
-
----
 
 ## What it does
 
@@ -27,6 +33,10 @@ to Testnet or live trading behind safeguards.
 - **Honest accounting** — every fill records its fee; PnL is always reported
   net of fees, and money math uses `Decimal` throughout.
 - **Capital allocation** — assign a budget per strategy; the engine enforces it.
+- **Multi-venue** — Binance (crypto), Alpaca (US stocks), Polymarket (prediction
+  markets), behind a common venue interface.
+- **AI strategies** — LLM-driven strategies with per-strategy model selection,
+  daily spend caps, and a per-model performance rollup.
 - **Roles & audit** — JWT login with `admin` / `user` roles; config changes are
   recorded in an audit log.
 
@@ -52,6 +62,8 @@ Capital is a monorepo of two long-lived services plus a database:
   Closing the browser never stops trading.
 - **PostgreSQL** — strategies, trades, positions, candle cache and equity
   history. Schema managed with Alembic migrations.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a fuller breakdown.
 
 ## Quick start
 
@@ -107,7 +119,7 @@ Market data needs no API key — Sim-mode paper trading works out of the box.
 Placing orders on Testnet or Live needs venue credentials, entered (encrypted)
 through the Settings page.
 
-- [docs/binance-setup.md](docs/binance-setup.md) — Binance (crypto; the active venue today)
+- [docs/binance-setup.md](docs/binance-setup.md) — Binance (crypto)
 - [docs/alpaca-setup.md](docs/alpaca-setup.md) — Alpaca (US stocks)
 - [docs/polymarket-setup.md](docs/polymarket-setup.md) — Polymarket (prediction markets)
 - [docs/venue-api-features.md](docs/venue-api-features.md) — what each venue API offers vs. what Capital uses
@@ -119,8 +131,7 @@ domain and Let's Encrypt TLS — see [docs/deployment.md](docs/deployment.md).
 
 ## Manual setup (without Docker)
 
-For working on a single service directly — see
-[CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide.
+For working on a single service directly:
 
 ```bash
 docker compose up -d postgres        # database only
@@ -162,21 +173,35 @@ Capital/
 ├── web/               React + Vite + TypeScript dashboard
 ├── scripts/           install.sh, deploy.sh, backup/restore
 ├── caddy/             reverse-proxy config for production
+├── docs/              architecture, branching, PR rules, venue setup
 ├── docker-compose.yml base service definitions
 └── .github/           CI workflows, issue & PR templates
 ```
 
 ## Contributing
 
-Capital is built through a tracked issue → branch → PR workflow. Both human and
-automated contributors are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for
-the full guide; the essentials:
+Contributions are welcome! Read [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md). In short:
 
-- `main` is protected — all changes land via Pull Request.
-- Branch names: `<type>/<issue#>-<slug>` (e.g. `feat/12-binance-client`).
+- **Branch off `test`, open PRs into `test`.** Never PR into `main` —
+  `main` is promoted from `test` automatically once CI is green. See
+  [docs/BRANCHING.md](docs/BRANCHING.md).
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org).
 - Run `ruff` + `pytest` (engine) and `npm run lint` + `build` (web) before a PR.
 - PRs are merged with a **merge commit** — branches are kept.
+
+### For contributors using Claude Code
+
+Project skills (Conventional Commits, Conventional Branches, modular service
+design) live in the [My-Skills](https://github.com/FurkanEdizkan/My-Skills)
+plugin marketplace. Install once per machine:
+
+```sh
+/plugin marketplace add FurkanEdizkan/My-Skills
+/plugin install skills@furkanedizkan-skills
+```
+
+See [AGENTS.md](AGENTS.md) for the full agent guide.
 
 ### For AI agents and automated contributors
 
@@ -184,14 +209,24 @@ Capital is designed to be navigable and contributable by AI agents:
 
 - **API** — the engine serves an OpenAPI spec and interactive docs at
   `/docs`; every endpoint is typed and authenticated.
-- **Contribution loop** — pick an issue, create a `<type>/<issue#>-<slug>`
-  branch, implement with tests, open a PR with `Closes #<issue>`, and let CI
-  gate the merge. This mirrors the human workflow exactly.
+- **Contribution loop** — pick an issue, create a `<type>/<short-slug>` branch
+  off `test`, implement with tests, open a PR with `Closes #<issue>`, and let
+  CI gate the merge. This mirrors the human workflow exactly.
 - **Conventions** — Conventional Commit messages, `ruff`-clean Python, hermetic
-  tests. CI enforces all three, so a green build means the change is contract-
-  compliant.
+  tests. CI enforces all three, so a green build means the change is
+  contract-compliant.
 - An **MCP server** (`mcp_server.py`) exposes read / manage / trade tools for
   external agents, authenticated with role-scoped API tokens.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — how Capital is put together
+- [Branching model](docs/BRANCHING.md) — the `test → main` workflow
+- [Pull request guidelines](docs/PR_GUIDELINES.md)
+- [Releases](docs/RELEASES.md)
+- [Contributing](CONTRIBUTING.md) — dev setup and PR rules
+- [Security policy](SECURITY.md)
+- [Agent guide](AGENTS.md)
 
 ## Roadmap
 
@@ -205,8 +240,8 @@ Capital is designed to be navigable and contributable by AI agents:
 | 5     | Live trading (Testnet → real)                 | Done        |
 | 6     | 24/7 hardening, resilience, deployment        | Done        |
 | 7     | AI strategies + agent/MCP integration         | Done        |
-| 8     | Multi-venue expansion (stocks, Polymarket)    | Future      |
+| 8     | Multi-venue expansion (stocks, Polymarket)    | Done        |
 
 ## License
 
-See [LICENSE](LICENSE).
+[Apache 2.0](LICENSE) © 2026 Furkan Edizkan
