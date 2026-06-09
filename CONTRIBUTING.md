@@ -1,26 +1,40 @@
 # Contributing to Capital
 
-Capital is a self-hosted automated Binance trading platform. This guide covers
-how to set up, branch, commit and open PRs.
+Thanks for your interest in Capital! This document explains how to set up your
+environment, the branching model, and the rules we ask contributors to follow.
+
+## Code of conduct
+
+By participating you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
+Be kind. Assume good faith.
 
 ## Project layout
 
 ```text
 engine/   Python trading engine + API (uv, FastAPI, PostgreSQL)
 web/      React + Vite + TypeScript dashboard
+docs/     architecture, branching, PR guidelines, releases, venue setup
 ```
 
-## Local setup
+## Getting started
 
-To run the whole stack in Docker with one command, use the installer:
+```sh
+git clone https://github.com/FurkanEdizkan/Capital.git
+cd Capital
+git checkout test          # always branch off test, never main
+git switch -c feat/my-thing
+```
 
-```bash
-scripts/install.sh
+The fastest path to a running stack is the installer (Docker + Compose v2):
+
+```sh
+scripts/install.sh                # development mode — hot reload
+scripts/install.sh prod           # production-style mode — built assets
 ```
 
 To develop a single service directly (hot reload, native tooling):
 
-```bash
+```sh
 # 1. PostgreSQL
 docker compose up -d postgres
 
@@ -30,66 +44,101 @@ uv sync
 uv run alembic upgrade head
 uv run uvicorn main:app --reload     # http://localhost:8000
 
-# 3. Web
+# 3. Web (in another shell)
 cd web
 npm install
 npm run dev                          # http://localhost:5173
 ```
 
-## Branching
+## Branching model
 
-`main` is protected — no direct pushes. All changes land via Pull Request.
-
-Branch off `main` with a typed, issue-numbered name:
+Capital uses a **two-trunk** model.
 
 ```text
-<type>/<issue#>-<short-slug>     e.g. feat/12-binance-client
+contributors  ->  feature/*  ->  PR into test  ->  CI green  ->  merged into test
+                                                                       |
+                                                          automated PR test -> main
+                                                                       |
+                                                                  CI green
+                                                                       v
+                                                                main (stable)
 ```
 
-Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`.
+- **`main`** is the stable branch. Releases are tagged from `main`. **Never**
+  open a PR directly into `main`.
+- **`test`** is the integration branch. All contributor PRs target `test`.
+- A GitHub workflow opens (or refreshes) a PR from `test` into `main` whenever
+  CI on `test` is green. Maintainers review and merge that PR to ship.
 
-## Commits — Conventional Commits
+See [docs/BRANCHING.md](docs/BRANCHING.md) for the full model and the
+branch-protection settings maintainers must configure.
 
-Commit messages follow [Conventional Commits](https://www.conventionalcommits.org):
+## Pull request workflow
+
+1. Create a topic branch off `test`. Use prefixes: `feat/`, `fix/`, `docs/`,
+   `refactor/`, `chore/`, `ci/`, `test/`, `perf/`.
+2. Make your changes. Add or update tests.
+3. Ensure the project's lint + test commands pass locally:
+   - Engine: `cd engine && uv run ruff check . && uv run pytest`
+   - Web: `cd web && npm run lint && npm run build`
+   - If you changed an engine API endpoint or model, regenerate the schema:
+     `cd engine && uv run python export_openapi.py`
+     `cd web && npm run gen:api`
+4. Push and open a PR **into `test`**. Fill out the PR template.
+5. Address review feedback. CI must be green before merge.
+6. Maintainers merge with a merge commit (not squash). Your PR title becomes the
+   merge commit message, so it must follow Conventional Commits — and because
+   every commit on your branch is preserved in history, write those cleanly and
+   Conventionally too.
+
+Read [docs/PR_GUIDELINES.md](docs/PR_GUIDELINES.md) for the full checklist.
+
+## Commit messages
+
+We follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+
+Format:
 
 ```text
-<type>(<scope>): <summary>        e.g. feat(engine): add binance client wrapper
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer(s)]
 ```
 
-Reference the issue in the body or summary (`(#12)`). Commit linting runs in CI.
+Allowed `type`s: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
+`build`, `ci`, `chore`, `revert`.
 
-## Before opening a PR
+The scope is optional and free-form — use the area of the codebase you touched
+(`engine`, `web`, `api`, `ui`, `infra`, `ci`, `docs`, …).
 
-Run the same checks CI runs:
+Examples:
 
-```bash
-# engine
-cd engine && uv run ruff check . && uv run pytest
+- `feat(engine): add binance client wrapper`
+- `fix(web): crash on empty positions list`
+- `docs: clarify local setup steps`
 
-# web
-cd web && npm run lint && npm run build
+Breaking changes use `!` and a `BREAKING CHANGE:` footer:
+
+```text
+feat(api)!: rename `path` field to `source`
+
+BREAKING CHANGE: clients must update the field name.
 ```
 
-- Include an Alembic migration for any DB schema change.
-- After changing an engine API endpoint or model, regenerate the API schema
-  so CI's drift check passes:
+PR titles are validated against `.commitlintrc.yaml` by the **Commitlint**
+workflow; the local husky `commit-msg` hook applies the same rules.
 
-  ```bash
-  cd engine && uv run python export_openapi.py   # updates web/openapi.json
-  cd web && npm run gen:api                       # updates src/lib/api/schema.d.ts
-  ```
+## Testing
 
-- Open the PR against `main`, fill in the template, and add `Closes #<issue>`.
-- CI must pass; a review is required (the repo admin may self-merge solo work).
+- Keep tests close to the code they cover.
+- Prefer small, real fixtures over heavy mocks when verifying behavior.
+- Add a regression test with every bug fix.
+- Engine tests run against a real PostgreSQL (CI brings one up). Don't mock
+  the database.
 
-## Merging
+## Reporting bugs / requesting features
 
-PRs are merged with a **merge commit** — *not* squashed — so each feature's
-branch and its individual commits stay visible in the history graph
-(`git log --graph`). The merged branch is then deleted; the merge commit
-already preserves the branching topology, so the graph is unaffected.
-
-## Workflow
-
-Work is tracked on the **Capital** GitHub Project board. Pick an issue from
-`Todo`, move it to `In Progress`, and let merging the PR close it.
+Use the GitHub issue templates. Include your OS, the project version or commit,
+and clear reproduction steps.

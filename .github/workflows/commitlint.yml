@@ -1,15 +1,35 @@
-name: Commit lint
+name: Commitlint
+
+# Validates that every PR title is a valid Conventional Commit. Because
+# maintainers merge with a merge commit and the PR title becomes that commit's
+# message, this keeps `main`/`test` history clean and release tooling happy.
 
 on:
   pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
-  commitlint:
-    name: Conventional Commits
+  pr-title:
+    name: Validate PR title
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Lint PR commits
-        uses: wagoid/commitlint-github-action@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install commitlint
+        run: |
+          npm install --no-save \
+            @commitlint/cli@^19 \
+            @commitlint/config-conventional@^19
+      - name: Lint PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$PR_TITLE" | npx --no-install commitlint --config .commitlintrc.yaml
