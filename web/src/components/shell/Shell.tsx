@@ -7,9 +7,16 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BrandMark, I } from "../icons";
 import { Badge, IconButton, Input, Kbd } from "../ui";
 import { useAuth } from "../../lib/auth";
+import { fetchSettings } from "../../lib/api/settings";
 import { NAV, type NavItem } from "./nav";
 
 export type TradingMode = "SIM" | "TESTNET" | "LIVE";
+
+function toBadgeMode(raw: string | undefined): TradingMode {
+  if (raw === "testnet") return "TESTNET";
+  if (raw === "live") return "LIVE";
+  return "SIM";
+}
 
 /* -------------------------------------------------------------- Sidebar --- */
 
@@ -494,7 +501,25 @@ export function Shell() {
   const [collapsed, setCollapsed] = useState(false);
   const [killArmed, setKillArmed] = useState(false);
   const [killToast, setKillToast] = useState(false);
-  const mode: TradingMode = "SIM";
+  const [mode, setMode] = useState<TradingMode>("SIM");
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const settings = await fetchSettings();
+        if (!cancelled) setMode(toBadgeMode(settings.mode));
+      } catch {
+        // Settings are admin-only; keep the last known badge.
+      }
+    };
+    void load();
+    const id = window.setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [location.pathname]);
 
   const items = NAV.filter((n) => !n.adminOnly || user?.role === "admin");
   const active =
